@@ -1,10 +1,27 @@
-import {Schema, serialize, deserializeUnchecked} from 'borsh';
+import {Schema, serialize, deserializeUnchecked, BinaryReader} from 'borsh';
 import BN from 'bn.js';
 import {Struct, Enum, PublicKey} from '@solana/web3.js';
+
+BinaryReader.prototype['readPubkey'] = function(): PublicKey {
+  const buf: Buffer = this.readBuffer(32);
+  return new PublicKey(buf);
+}
+
+//TODO not tested
+BinaryReader.prototype['writePubkey'] = function(value: number | BN) {
+  this.maybeResize();
+  this.writeBuffer(Buffer.from(new BN(value).toArray('le', 32)));
+}
 
 export class Fee extends Struct {
   denominator: BN;
   numerator: BN;
+}
+
+export class Lockup extends Struct {
+  unixTimestamp: BN;
+  epoch: BN;
+  custodian: PublicKey;
 }
 
 export class AccountType extends Enum {}
@@ -21,28 +38,45 @@ export class StakePool extends Struct {
   accountType: AccountType;
   manager: PublicKey;
   staker: PublicKey;
-  depositAuthority: PublicKey;
-  withdrawBumpSeed: number;
+  stakeDepositAuthority: PublicKey;
+  stakeWithdrawBumpSeed: number;
   validatorList: PublicKey;
   reserveStake: PublicKey;
   poolMint: PublicKey;
   managerFeeAccount: PublicKey;
+  tokenProgramId: PublicKey;
   totalStakeLamports: BN;
   poolTokenSupply: BN;
   lastUpdateEpoch: BN;
+  lockup: Lockup;
   fee: Fee;
+  nextEpochFee?: Fee;
+  preferredDepositValidatorVoteAddress?: PublicKey;
+  preferredWithdrawValidatorVoteAddress?: PublicKey;
+  stakeDepositFee: Fee;
+  withdrawalFee: Fee;
+  nextWithdrawalFee?: Fee;
+  stakeReferralFee: number;
+  solDepositAuthority?: PublicKey;
+  solDepositFee: Fee;
+  solReferralFee: number;
+}
+
+export class ValidatorListHeader extends Struct {
+  accountType: AccountType;
+  maxValidators: number;
 }
 
 export class ValidatorList extends Struct {
-  accountType: AccountType;
-  maxValidators: number;
+  header: ValidatorListHeader;
   validators: [ValidatorStakeInfo];
 }
 export class ValidatorStakeInfo extends Struct {
+  activeStakeLamports: BN;
+  transientStakeLamports: BN;
+  lastUpdateEpoch: BN;
   status: StakeStatus;
   voteAccountAddress: PublicKey;
-  stakeLamports: BN;
-  lastUpdateEpoch: BN;
 }
 export class StakeStatus extends Enum {}
 
@@ -73,6 +107,15 @@ export function addStakePoolSchema(schema: Schema): void {
     ],
   });
 
+  schema.set(Lockup, {
+    kind: 'struct',
+    fields: [
+      ['unixTimestamp', 'u64'], //TODO it's type is i64
+      ['epoch', 'u64'],
+      ['custodian', 'pubkey'],
+    ],
+  });
+
   schema.set(AccountType, {
     kind: 'enum',
     field: 'enum',
@@ -90,27 +133,54 @@ export function addStakePoolSchema(schema: Schema): void {
     kind: 'struct',
     fields: [
       ['accountType', AccountType],
-      ['manager', PublicKey],
-      ['staker', PublicKey],
-      ['depositAuthority', PublicKey],
-      ['withdrawBumpSeed', 'u8'],
-      ['validatorList', PublicKey],
-      ['reserveStake', PublicKey],
-      ['poolMint', PublicKey],
-      ['managerFeeAccount', PublicKey],
-      ['tokenProgramId', PublicKey],
+      ['manager', 'pubkey'],
+      ['staker', 'pubkey'],
+      ['stakeDepositAuthority', 'pubkey'],
+      ['stakeWithdrawBumpSeed', 'u8'],
+      ['validatorList', 'pubkey'],
+      ['reserveStake', 'pubkey'],
+      ['poolMint', 'pubkey'],
+      ['managerFeeAccount', 'pubkey'],
+      ['tokenProgramId', 'pubkey'],
       ['totalStakeLamports', 'u64'],
       ['poolTokenSupply', 'u64'],
       ['lastUpdateEpoch', 'u64'],
+      ['lockup', Lockup],
       ['fee', Fee],
+      ['nextEpochFee', {kind: 'option', type: Fee}],
+      [
+        'preferredDepositValidatorVoteAddress',
+        {kind: 'option', type: 'pubkey'},
+      ],
+      [
+        'preferredWithdrawValidatorVoteAddress',
+        {kind: 'option', type: 'pubkey'},
+      ],
+      ['stakeDepositFee', Fee],
+      ['withdrawalFee', Fee],
+      ['nextWithdrawalFee', {kind: 'option', type: Fee}],
+      ['stakeReferralFee', 'u8'],
+      [
+        'solDepositAuthority',
+        {kind: 'option', type: 'pubkey'},
+      ],
+      ['solDepositFee', Fee],
+      ['solReferralFee', 'u8'],
+    ],
+  });
+
+  schema.set(ValidatorListHeader, {
+    kind: 'struct',
+    fields: [
+      ['accountType', AccountType],
+      ['maxValidators', 'u32'],
     ],
   });
 
   schema.set(ValidatorList, {
     kind: 'struct',
     fields: [
-      ['accountType', AccountType],
-      ['maxValidators', 'u32'],
+      ['header', ValidatorListHeader],
       ['validators', [ValidatorStakeInfo]],
     ],
   });
@@ -130,10 +200,11 @@ export function addStakePoolSchema(schema: Schema): void {
   schema.set(ValidatorStakeInfo, {
     kind: 'struct',
     fields: [
-      ['status', StakeStatus],
-      ['voteAccountAddress', PublicKey],
-      ['stakeLamports', 'u64'],
+      ['activeStakeLamports', 'u64'],
+      ['transientStakeLamports', 'u64'],
       ['lastUpdateEpoch', 'u64'],
+      ['status', StakeStatus],
+      ['voteAccountAddress', 'pubkey'],
     ],
   });
 }

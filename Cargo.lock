@@ -3865,6 +3865,7 @@ name = "spl-stake-pool"
 version = "0.4.0"
 dependencies = [
  "arrayref",
+ "base64 0.13.0",
  "bincode",
  "borsh",
  "num-derive",

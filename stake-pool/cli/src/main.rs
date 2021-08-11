@@ -187,7 +187,7 @@ fn command_create_pool(
         .get_minimum_balance_for_rent_exemption(spl_token::state::Account::LEN)?;
     let stake_pool_account_lamports = config
         .rpc_client
-        .get_minimum_balance_for_rent_exemption(get_packed_len::<StakePool>())?;
+        .get_minimum_balance_for_rent_exemption(get_packed_len::<StakePool>() * 3 / 2)?;
     let empty_validator_list = ValidatorList::new(max_validators);
     let validator_list_size = get_instance_packed_len(&empty_validator_list)?;
     let validator_list_balance = config
@@ -273,7 +273,7 @@ fn command_create_pool(
                 &config.fee_payer.pubkey(),
                 &stake_pool_keypair.pubkey(),
                 stake_pool_account_lamports,
-                get_packed_len::<StakePool>() as u64,
+                get_packed_len::<StakePool>() as u64 * 3 / 2, //multiple 1.5 for future upgrade
                 &spl_stake_pool::id(),
             ),
             // Initialize stake pool

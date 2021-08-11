@@ -1174,3 +1174,17 @@ pub fn set_deposit_authority(
             .unwrap(),
     }
 }
+
+
+#[test]
+pub fn test_ix_update() {
+    let x = StakePoolInstruction::UpdateValidatorListBalance {
+        start_index: 1,
+        no_merge: false,
+    }
+    .try_to_vec()
+    .unwrap();
+    println!("{:?}", x);
+    //true: 1, false: 0
+    //instruction: 7
+}

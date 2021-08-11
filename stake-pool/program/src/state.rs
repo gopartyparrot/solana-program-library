@@ -1062,4 +1062,81 @@ mod test {
             assert!(withdraw_result <= deposit_stake);
         }
     }
+
+    #[test]
+    fn test_state_serialize() {
+        let pool = StakePool {
+            account_type: AccountType::StakePool,
+            manager: Pubkey::new_unique(),
+            staker: Pubkey::new_unique(),
+            stake_deposit_authority: Pubkey::new_unique(),
+            validator_list: Pubkey::new_unique(),
+            reserve_stake: Pubkey::new_unique(),
+            pool_mint: Pubkey::new_unique(),
+            manager_fee_account: Pubkey::new_unique(),
+            token_program_id: Pubkey::new_unique(),
+            total_stake_lamports: 1,
+            pool_token_supply: 1,
+            last_update_epoch: 1,
+            lockup: Lockup::default(),
+            fee: Fee {
+                denominator: 10,
+                numerator: 3,
+            },
+            stake_deposit_fee: Fee {
+                denominator: 10,
+                numerator: 3,
+            },
+            withdrawal_fee: Fee {
+                denominator: 10,
+                numerator: 3,
+            },
+            sol_deposit_fee: Fee {
+                denominator: 10,
+                numerator: 3,
+            },
+            next_epoch_fee: None,
+            preferred_deposit_validator_vote_address: Some(Pubkey::new_unique()),
+            preferred_withdraw_validator_vote_address: Some(Pubkey::new_unique()),
+            next_withdrawal_fee: None,
+            sol_deposit_authority: Some(Pubkey::new_unique()),
+            stake_referral_fee: 0,
+            sol_referral_fee: 0,
+            stake_withdraw_bump_seed: 0,
+        };
+        let v = pool.try_to_vec().unwrap();
+        let len = v.len();
+        let b64 = base64::encode(v);
+        println!("{} len: {}", b64, len);
+        println!("manager: {}", pool.manager.clone());
+        
+        let mgr = pool.manager.clone();
+
+        let validator_list = ValidatorList {
+            header: ValidatorListHeader {
+                account_type: AccountType::ValidatorList,
+                max_validators: 10,
+            },
+            validators: vec![
+                ValidatorStakeInfo {
+                    active_stake_lamports: 2,
+                    transient_stake_lamports: 2,
+                    last_update_epoch: 2,
+                    status: StakeStatus::Active,
+                    vote_account_address: Pubkey::new_unique(),
+                },
+                ValidatorStakeInfo {
+                    active_stake_lamports: 2,
+                    transient_stake_lamports: 2,
+                    last_update_epoch: 2,
+                    status: StakeStatus::Active,
+                    vote_account_address: Pubkey::new_unique(),
+                },
+            ],
+        };
+
+        let v2 = validator_list.try_to_vec().unwrap();
+        let b2 = base64::encode(v2);
+        println!("validator_list: {}", b2);
+    }
 }

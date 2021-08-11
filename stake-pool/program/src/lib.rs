@@ -117,4 +117,6 @@ pub fn find_transient_stake_program_address(
     )
 }
 
+// solana_program::declare_id!("7kuQC9Ai4ZEFTLbpdUoDZW5SodGLfp5dFoJvuxqGg54V"); //local
+// solana_program::declare_id!("3puRp4bBPqDyBJuumc4Nwrv5W699kCZpmoTaQQKaobJh"); //mainnet
 solana_program::declare_id!("SPoo1xuN9wGpxNjGnPNbRPtpQ7mHgKM8d9BeFC549Jy");
