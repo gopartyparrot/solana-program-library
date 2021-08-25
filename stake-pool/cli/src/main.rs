@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod client;
+pub mod client;
 
 use {
     crate::client::*,
@@ -2434,4 +2434,57 @@ fn main() {
         eprintln!("{}", err);
         exit(1);
     });
+}
+
+fn default_config(solana_config_path: String, dry_run: bool) -> Config {
+    let cli_config = if !solana_config_path.is_empty() {
+        solana_cli_config::Config::load(solana_config_path.as_str()).unwrap_or_default()
+    } else {
+        solana_cli_config::Config::default()
+    };
+    let get_keypair = |path: String| -> Box<Keypair> {
+        Box::new(solana_sdk::signer::keypair::read_keypair_file(path).unwrap())
+    };
+    Config {
+        rpc_client: RpcClient::new_with_commitment(
+            cli_config.json_rpc_url,
+            CommitmentConfig::confirmed(),
+        ),
+        verbose: false,
+        manager: get_keypair(cli_config.keypair_path.to_string()),
+        staker: get_keypair(cli_config.keypair_path.to_string()),
+        depositor: None,
+        sol_depositor: None,
+        token_owner: get_keypair(cli_config.keypair_path.to_string()),
+        fee_payer: get_keypair(cli_config.keypair_path.to_string()),
+        dry_run,
+        no_update: false,
+    }
+}
+
+pub fn trigger_update_stake_pool(
+    solana_config_path: String,
+    stake_pool_address: &Pubkey,
+    force: bool,
+    no_merge: bool,
+) {
+    let config = default_config(solana_config_path, false);
+    match command_update(&config, stake_pool_address, force, no_merge) {
+        Ok(_) => {}
+        Err(err) => println!("[ERR] update failed {:?}", err),
+    }
+}
+
+pub fn trigger_command_increase_validator_stake(
+    solana_config_path: String,
+    stake_pool_address: &Pubkey,
+    vote_account: &Pubkey,
+    amount: f64,
+    dry_run: bool,
+) {
+    let config = default_config(solana_config_path, dry_run);
+    match command_increase_validator_stake(&config, stake_pool_address, vote_account, amount) {
+        Ok(_) => {}
+        Err(err) => println!("[ERR] increase validator stake failed {:?}", err),
+    }
 }
