@@ -1,0 +1,14 @@
+{
+  "name": "stake-pool",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "buildVerifiable": "cd stake-pool/program/ && anchor build --docker-image projectserum/build:v0.20.1 --verifiable --program-name spl_stake_pool",
+    "verifyBuffer": "cd stake-pool/program && anchor verify --provider.cluster mainnet --docker-image projectserum/build:v0.20.1 BuffQFUWRMNJQ7NhtF9ypnRxGwzFRNjaoFJA27XnhX1d",
+    "verifyProgram": "cd stake-pool/program && anchor verify --provider.cluster mainnet --docker-image projectserum/build:v0.20.1 3puRp4bBPqDyBJuumc4Nwrv5W699kCZpmoTaQQKaobJh"
+  },
+  "devDependencies": {
+    "@project-serum/anchor-cli": "^0.20.1"
+  }
+}
