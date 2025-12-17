@@ -48,6 +48,17 @@ fn get_stake_state(
     }
 }
 
+/// Checks if a stake account can be managed by the pool
+fn stake_is_usable_by_pool(
+    meta: &stake_program::Meta,
+    expected_authority: &Pubkey,
+    expected_lockup: &stake_program::Lockup,
+) -> bool {
+    meta.authorized.staker == *expected_authority
+        && meta.authorized.withdrawer == *expected_authority
+        && meta.lockup == *expected_lockup
+}
+
 /// Check validity of vote address for a particular stake account
 fn check_validator_stake_address(
     program_id: &Pubkey,
@@ -1547,6 +1558,7 @@ impl Processor {
 
             // Status for validator stake
             //  * active -> do everything
+            //  * initialized (undelegated) -> merge into reserve and mark for removal
             //  * any other state / not a stake -> error state, but account for transient stake
             let validator_stake_state = try_from_slice_unchecked::<stake_program::StakeState>(
                 &validator_stake_info.data.borrow(),
@@ -1562,6 +1574,37 @@ impl Processor {
                             .ok_or(StakePoolError::CalculationFailure)?;
                     } else {
                         msg!("Validator stake account no longer part of the pool, ignoring");
+                    }
+                }
+                Some(stake_program::StakeState::Initialized(meta))
+                    if stake_is_usable_by_pool(
+                        &meta,
+                        withdraw_authority_info.key,
+                        &stake_pool.lockup,
+                    ) =>
+                {
+                    // If a validator stake is `Initialized`, the validator could
+                    // have been destaked during a cluster restart or removed through
+                    // other means. Absorb those lamports into the reserve.
+                    // NOTE: Always merge regardless of no_merge flag to prevent
+                    // accounting discrepancies. The no_merge flag is for testing
+                    // active/deactivating stakes, not for initialized stakes that
+                    // must be recovered.
+                    Self::stake_merge(
+                        stake_pool_info.key,
+                        validator_stake_info.clone(),
+                        withdraw_authority_info.clone(),
+                        AUTHORITY_WITHDRAW,
+                        stake_pool.stake_withdraw_bump_seed,
+                        reserve_stake_info.clone(),
+                        clock_info.clone(),
+                        stake_history_info.clone(),
+                        stake_program_info.clone(),
+                    )?;
+                    if transient_stake_lamports != 0 {
+                        validator_stake_record.status = StakeStatus::DeactivatingTransient;
+                    } else {
+                        validator_stake_record.status = StakeStatus::ReadyForRemoval;
                     }
                 }
                 Some(stake_program::StakeState::Initialized(_))
