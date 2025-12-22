@@ -1602,6 +1602,27 @@ impl Processor {
                         stake_program_info.clone(),
                     )?;
                     if transient_stake_lamports != 0 {
+                        // If the validator stake is undelegated, we need to ensure
+                        // any transient stake is also deactivated so it can be
+                        // merged into the reserve in a future epoch.
+                        // Without this, an active transient stake would be orphaned
+                        // since the main validator stake is now gone.
+                        let transient_stake_state = try_from_slice_unchecked::<stake_program::StakeState>(
+                            &transient_stake_info.data.borrow(),
+                        )
+                        .ok();
+                        if let Some(stake_program::StakeState::Stake(_, stake)) = transient_stake_state {
+                            if stake.delegation.deactivation_epoch == Epoch::MAX {
+                                Self::stake_deactivate(
+                                    transient_stake_info.clone(),
+                                    clock_info.clone(),
+                                    withdraw_authority_info.clone(),
+                                    stake_pool_info.key,
+                                    AUTHORITY_WITHDRAW,
+                                    stake_pool.stake_withdraw_bump_seed,
+                                )?;
+                            }
+                        }
                         validator_stake_record.status = StakeStatus::DeactivatingTransient;
                     } else {
                         validator_stake_record.status = StakeStatus::ReadyForRemoval;
